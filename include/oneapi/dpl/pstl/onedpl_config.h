@@ -32,6 +32,27 @@
 #    define _ONEDPL_BACKEND_SYCL ONEDPL_USE_DPCPP_BACKEND
 #endif
 
+#if defined(__HIPSYCL__)
+#    define _ONEDPL_BACKEND_SYCL 1
+#    include "CL/sycl.hpp"
+using namespace cl;
+
+#include <cstdint>
+// oneDPL needs legacy OpenCL types
+namespace cl::sycl {
+using cl_char = char;
+using cl_uchar = unsigned char;
+using cl_short = int16_t;
+using cl_ushort = uint16_t;
+using cl_int = int32_t;
+using cl_uint = uint32_t;
+using cl_long = int64_t;
+using cl_ulong = uint64_t;
+using cl_float = float;
+using cl_double = double;
+}
+#endif
+
 #if defined(ONEDPL_FPGA_DEVICE)
 #    undef _ONEDPL_FPGA_DEVICE
 #    define _ONEDPL_FPGA_DEVICE ONEDPL_FPGA_DEVICE

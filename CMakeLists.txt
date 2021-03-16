@@ -39,9 +39,14 @@ include(CheckCXXCompilerFlag)
 
 # Set default back-end in according with compiler (DPC++ or others)
 check_cxx_compiler_flag("-fsycl" _fsycl_option)
+find_package(hipSYCL QUIET)
+
 if (NOT ONEDPL_BACKEND)
     if (_fsycl_option)
         set(ONEDPL_BACKEND "dpcpp" CACHE STRING "Threading backend")
+    elseif(hipSYCL_FOUND)
+        message(STATUS "Found hipSYCL")
+        set(ONEDPL_BACKEND "hipsycl" CACHE STRING "Threading backend")
     else()
         set(ONEDPL_BACKEND "tbb" CACHE STRING "Threading backend")
     endif()
@@ -93,7 +98,7 @@ else()
     message(STATUS "oneDPL: ONEDPL_ENABLE_SIMD is OFF, corresponding compiler flag is not used")
 endif()
 
-if (ONEDPL_BACKEND MATCHES "^(tbb|dpcpp|dpcpp_only)$")
+if (ONEDPL_BACKEND MATCHES "^(tbb|dpcpp|dpcpp_only|hipsycl)$")
     string(TOUPPER "${ONEDPL_BACKEND}" ONEDPL_BACKEND_NAME)
     set(ONEDPL_USE_BACKEND_${ONEDPL_BACKEND_NAME} TRUE)
 
@@ -101,6 +106,10 @@ if (ONEDPL_BACKEND MATCHES "^(tbb|dpcpp|dpcpp_only)$")
         find_package(TBB 2021 REQUIRED tbb OPTIONAL_COMPONENTS tbbmalloc)
         message(STATUS "oneDPL uses oneTBB ${TBB_VERSION}")
         target_link_libraries(oneDPL INTERFACE TBB::tbb)
+    endif()
+    
+    if (ONEDPL_BACKEND MATCHES "hipsycl")
+        find_package(hipSYCL REQUIRED)
     endif()
 
     # It is for Clang and Intel® oneAPI DPC++ Compiler (while the last one is detected as Clang; for Linux only), which are used with libstdc++ standard library
@@ -120,6 +129,7 @@ if (ONEDPL_BACKEND MATCHES "^(tbb|dpcpp|dpcpp_only)$")
         $<$<CONFIG:Debug>:PSTL_USE_DEBUG>
         $<$<BOOL:${ONEDPL_USE_BACKEND_DPCPP_ONLY}>:ONEDPL_USE_TBB_BACKEND=0>
         $<$<BOOL:${ONEDPL_USE_BACKEND_TBB}>:ONEDPL_USE_DPCPP_BACKEND=0>
+        $<$<BOOL:${ONEDPL_USE_BACKEND_HIPSYCL}>:ONEDPL_USE_TBB_BACKEND=0>
         )
 
     if (ONEDPL_BACKEND MATCHES "^(dpcpp|dpcpp_only)$")
@@ -204,11 +214,12 @@ elseif(ONEDPL_BACKEND MATCHES "^(serial)$")
     target_compile_definitions(oneDPL INTERFACE
         ONEDPL_USE_TBB_BACKEND=0
         ONEDPL_USE_DPCPP_BACKEND=0
+        ONEDPL_USE_HIPSYCL_BACKEND=0
         )
     message(STATUS "Compilation for CPU device due to serial backend")
 
 else()
-    message(STATUS "Using Parallel Policies, but not oneTBB/DPC++")
+    message(STATUS "Using Parallel Policies, but not oneTBB/DPC++/hipSYCL")
     if (TARGET ${ONEDPL_BACKEND})
         target_link_libraries(oneDPL INTERFACE ${ONEDPL_BACKEND})
     else()
