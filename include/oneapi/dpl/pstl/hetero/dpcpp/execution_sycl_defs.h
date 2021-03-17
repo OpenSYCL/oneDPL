@@ -337,7 +337,8 @@ sycl::cl_ulong
 __max_local_allocation_size(_ExecutionPolicy&& __policy, const sycl::cl_ulong& __local_allocation_size)
 {
     const auto __local_mem_size = __policy.queue().get_device().template get_info<sycl::info::device::local_mem_size>();
-    return ::std::min(__local_mem_size / sizeof(_T), __local_allocation_size);
+    return ::std::min(static_cast<sycl::cl_ulong>(__local_mem_size / sizeof(_T)),
+                      __local_allocation_size);
 }
 
 #if _USE_SUB_GROUPS
