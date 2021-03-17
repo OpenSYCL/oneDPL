@@ -37,7 +37,7 @@
 #    include "CL/sycl.hpp"
 using namespace cl;
 
-#include <cstdint>
+#     include <cstdint>
 // oneDPL needs legacy OpenCL types
 namespace hipsycl::sycl {
 using cl_char = char;
@@ -51,6 +51,12 @@ using cl_ulong = uint64_t;
 using cl_float = float;
 using cl_double = double;
 
+// Not part of SYCL 2020, but implementation detail
+// of DPC++ that oneDPL needs.
+template <access_mode mode> struct mode_tag_t {
+  explicit mode_tag_t() = default;
+};
+
 namespace property {
 // oneDPL requires older noinit name, while hipSYCL provides no_init
 // as per SYCL 2020 final spec.
@@ -58,6 +64,10 @@ using noinit = no_init;
 }
 
 }
+#define sycl_buffer_allocator(T) sycl::buffer_allocator<T>
+
+#else
+#define sycl_buffer_allocator(T) sycl::buffer_allocator
 #endif
 
 #if defined(ONEDPL_FPGA_DEVICE)

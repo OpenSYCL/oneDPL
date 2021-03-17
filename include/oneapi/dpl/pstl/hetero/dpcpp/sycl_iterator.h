@@ -32,7 +32,7 @@ namespace __internal
 {
 // Iterator that hides sycl::buffer to pass those to algorithms.
 // SYCL iterator is a pair of sycl::buffer and integer value
-template <access_mode Mode, typename T, typename Allocator = sycl::buffer_allocator>
+template <access_mode Mode, typename T, typename Allocator = sycl_buffer_allocator(T)>
 struct sycl_iterator
 {
   private:

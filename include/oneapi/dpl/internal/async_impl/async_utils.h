@@ -81,10 +81,10 @@ class __future : public __par_backend_hetero::__future_base
 #if _ONEDPL_BACKEND_SYCL
 // Specialization for sycl_iterator
 template <typename _T>
-class __future<sycl_iterator<sycl::access::mode::read_write, _T, sycl::buffer_allocator>>
+class __future<sycl_iterator<sycl::access::mode::read_write, _T, sycl_buffer_allocator(T)>>
     : public __par_backend_hetero::__future_base
 {
-    using _Tp = sycl_iterator<sycl::access::mode::read_write, _T, sycl::buffer_allocator>;
+    using _Tp = sycl_iterator<sycl::access::mode::read_write, _T, sycl_buffer_allocator(T)>;
     _Tp __data;
     ::std::unique_ptr<__par_backend_hetero::__lifetime_keeper_base> __tmp;
 
