@@ -39,7 +39,7 @@ using namespace cl;
 
 #include <cstdint>
 // oneDPL needs legacy OpenCL types
-namespace cl::sycl {
+namespace hipsycl::sycl {
 using cl_char = char;
 using cl_uchar = unsigned char;
 using cl_short = int16_t;
@@ -50,6 +50,13 @@ using cl_long = int64_t;
 using cl_ulong = uint64_t;
 using cl_float = float;
 using cl_double = double;
+
+namespace property {
+// oneDPL requires older noinit name, while hipSYCL provides no_init
+// as per SYCL 2020 final spec.
+using noinit = no_init;
+}
+
 }
 #endif
 
