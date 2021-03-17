@@ -34,10 +34,9 @@
 
 #if defined(__HIPSYCL__)
 #    define _ONEDPL_BACKEND_SYCL 1
-#    undef ONEDPL_USE_TBB_BACKEND
 #    include "onedpl_config_hipsycl.h"
 #else
-#define sycl_buffer_allocator(T) sycl::buffer_allocator
+#    define sycl_buffer_allocator(T) sycl::buffer_allocator
 #endif
 
 #if defined(ONEDPL_FPGA_DEVICE)
@@ -307,7 +306,7 @@
 // Compilation of a kernel is requiried to obtain valid work_group_size
 // when target devices are CPU or FPGA emulator. Since CPU and GPU devices
 // cannot be distinguished during compilation, the macro is enabled by default.
-#    if !defined(_ONEDPL_COMPILE_KERNEL)
+#    if !defined(_ONEDPL_COMPILE_KERNEL) && !defined(__HIPSYCL__)
 #        define _ONEDPL_COMPILE_KERNEL 1
 #    endif
 #endif
