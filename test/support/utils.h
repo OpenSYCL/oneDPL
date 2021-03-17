@@ -611,7 +611,8 @@ multiply_matrix(const Matrix2x2<T>& left, const Matrix2x2<T>& right)
 
 // Check that Intel(R) Threading Building Blocks header files are not used when parallel policies are off
 #if !_ONEDPL_USE_PAR_POLICIES
-#if defined(TBB_INTERFACE_VERSION)
+// Parallel STL used by headers of hipSYCL might include TBB
+#if defined(TBB_INTERFACE_VERSION) && !defined(__HIPSYCL__)
 #        error The parallel backend is used while it should not (_ONEDPL_USE_PAR_POLICIES==0)
 #endif
 #endif

@@ -88,7 +88,7 @@ set(_skip_regex_for_not_dpcpp "(xpu_api)")
 file(GLOB_RECURSE UNIT_TESTS "*.pass.cpp")
 foreach (_file IN LISTS UNIT_TESTS)
     if (_file MATCHES "${_skip_regex_for_not_dpcpp}" AND NOT ONEDPL_BACKEND MATCHES "^(dpcpp|dpcpp_only|hipsycl)$")
-        message(STATUS "Skip test ${_file} as it requires DPC++ backend")
+        message(STATUS "Skip test ${_file} as it requires DPC++/hipSYCL backend")
         continue()
     endif()
 

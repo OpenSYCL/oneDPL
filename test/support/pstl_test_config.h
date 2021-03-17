@@ -54,9 +54,13 @@
 #define _PSTL_STD_UNINITIALIZED_FILL_BROKEN (_MSC_VER == 1900)
 
 #define _PSTL_SYCL_TEST_USM 1
+    
+#ifdef __HIPSYCL__
+# define TEST_ONLY_HETERO_POLICIES 1
+#endif
 
 // Enable when compiler supports SYCL
-#if defined(CL_SYCL_LANGUAGE_VERSION) || defined(SYCL_LANGUAGE_VERSION)
+#if defined(CL_SYCL_LANGUAGE_VERSION) || defined(SYCL_LANGUAGE_VERSION) || defined(__HIPSYCL__)
 #define TEST_SYCL_PRESENT 1
 #else
 #define TEST_SYCL_PRESENT 0
