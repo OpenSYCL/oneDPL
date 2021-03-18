@@ -97,7 +97,7 @@ OutPtr exclusive_scan(Group g, InPtr first, InPtr last, OutPtr result,
 template <typename Group, typename InPtr, typename OutPtr, typename T,
           typename BinaryOperation,
           std::enable_if_t<is_group_v<std::decay_t<Group>>, bool> = true>
-T exclusive_scan(Group g, InPtr first, InPtr last, OutPtr result, T init,
+OutPtr exclusive_scan(Group g, InPtr first, InPtr last, OutPtr result, T init,
                  BinaryOperation binary_op) {
   return joint_exclusive_scan(g, first, last, result, init, binary_op);
 }
@@ -113,10 +113,46 @@ OutPtr inclusive_scan(Group g, InPtr first, InPtr last, OutPtr result,
 template <typename Group, typename InPtr, typename OutPtr, typename T,
           typename BinaryOperation,
           std::enable_if_t<is_group_v<std::decay_t<Group>>, bool> = true>
-T inclusive_scan(Group g, InPtr first, InPtr last, OutPtr result,
+OutPtr inclusive_scan(Group g, InPtr first, InPtr last, OutPtr result,
                  BinaryOperation binary_op, T init) {
   return joint_inclusive_scan(g, first, last, result, binary_op, init);
 }
+
+
+template <typename Group, typename In, typename Out, 
+          access::address_space InS, access::address_space OutS,
+          typename BinaryOperation,
+          std::enable_if_t<is_group_v<std::decay_t<Group>>, bool> = true>
+auto exclusive_scan(Group g, multi_ptr<In, InS> first, multi_ptr<In, InS> last,
+                      multi_ptr<Out, OutS> result, BinaryOperation binary_op) {
+  return multi_ptr<Out, OutS>{joint_exclusive_scan(g, first.get(), last.get(), result.get(), binary_op)};
+}
+
+template <typename Group, access::address_space InS, access::address_space OutS, 
+          typename T, typename BinaryOperation,
+          std::enable_if_t<is_group_v<std::decay_t<Group>>, bool> = true>
+auto exclusive_scan(Group g, multi_ptr<T, InS> first, multi_ptr<T, InS> last,
+                 multi_ptr<T, OutS> result, T init, BinaryOperation binary_op) {
+  return multi_ptr<T, OutS>{joint_exclusive_scan(g, first.get(), last.get(), result.get(), init, binary_op)};
+}
+
+template <typename Group, typename In, typename Out, 
+          access::address_space InS, access::address_space OutS,
+          typename BinaryOperation,
+          std::enable_if_t<is_group_v<std::decay_t<Group>>, bool> = true>
+auto inclusive_scan(Group g,  multi_ptr<In, InS> first, multi_ptr<In, InS> last,
+                      multi_ptr<Out, OutS> result, BinaryOperation binary_op) {
+  return multi_ptr<Out, OutS>{joint_inclusive_scan(g, first.get(), last.get(), result.get(), binary_op)};
+}
+
+template <typename Group, access::address_space InS, access::address_space OutS, 
+          typename T, typename BinaryOperation,
+          std::enable_if_t<is_group_v<std::decay_t<Group>>, bool> = true>
+auto inclusive_scan(Group g, multi_ptr<T, InS> first, multi_ptr<T, InS> last,
+                 multi_ptr<T, OutS> result, BinaryOperation binary_op, T init) {
+  return multi_ptr<T, OutS>{joint_inclusive_scan(g, first.get(), last.get(), result.get(), binary_op, init)};
+}
+
 
 template <typename Group, typename T, typename Predicate>
 bool any_of(Group g, T x, Predicate pred) {
