@@ -347,6 +347,25 @@ struct __scan_init_processing
     }
 };
 
+// create mask
+template <typename _Pred, typename _Tp>
+struct __create_mask
+{
+    _Pred __pred;
+
+    template <typename _Idx, typename _Input>
+    _Tp
+    operator()(const _Idx __idx, const _Input& __input) const
+    {
+        using ::std::get;
+        // 1. apply __pred
+        auto __temp = __pred(get<0>(__input[__idx]));
+        // 2. initialize mask
+        get<1>(__input[__idx]) = __temp;
+        return _Tp(__temp);
+    }
+};
+
 // functors for scan
 template <typename _BinaryOp, typename _Inclusive, ::std::size_t N>
 struct __copy_by_mask
@@ -455,7 +474,7 @@ struct __global_scan_functor
         if (__item_idx >= __size_per_wg && __item_idx + __shift < __n)
         {
             auto __wg_sums_idx = __item_idx / __size_per_wg - 1;
-            // an initial value preceeds the first group for the exclusive scan
+            // an initial value precedes the first group for the exclusive scan
             __item_idx += __shift;
             auto __bin_op_result = __binary_op(__wg_sums_acc[__wg_sums_idx], __out_acc[__item_idx]);
             using __out_type = typename ::std::decay<decltype(__out_acc[__item_idx])>::type;
@@ -490,11 +509,7 @@ struct __scan
         __scan_init_processing<_Tp> __use_init{};
 
         ::std::size_t __shift = 0;
-        __internal::__invoke_if_not(_Inclusive{}, [&]() {
-            __shift = 1;
-            if (__global_id == 0)
-                __use_init(__init, __out_acc[__global_id]);
-        });
+        __internal::__invoke_if_not(_Inclusive{}, [&]() { __shift = 1; });
 
         ::std::size_t __adjusted_global_id = __local_id + __size_per_wg * __group_id;
         auto __adder = __local_acc[0];
@@ -556,6 +571,10 @@ struct __scan
             if (__adjusted_global_id == __n - 1)
                 __wg_assigner(__wg_sums_acc, __group_id, __local_acc, __local_id);
         }
+        __internal::__invoke_if_not(_Inclusive{}, [&]() {
+            if (__global_id == 0)
+                __use_init(__init, __out_acc[__global_id]);
+        });
 
         if (__local_id == __wgroup_size - 1 && __adjusted_global_id - __wgroup_size < __n)
             __wg_assigner(__wg_sums_acc, __group_id, __local_acc, __local_id);
@@ -725,7 +744,8 @@ struct __reverse_functor
     void
     operator()(const _Idx __idx, _Accessor& __acc) const
     {
-        ::std::swap(__acc[__idx], __acc[__size - __idx - 1]);
+        using ::std::swap;
+        swap(__acc[__idx], __acc[__size - __idx - 1]);
     }
 };
 
@@ -801,7 +821,7 @@ class __brick_set_op
         bool bres = _IsOpDifference(); //initialization in true in case of difference operation; false - intersection.
         if (__res == __nb || __comp(__val_a, __b[__b_beg + __res]))
         {
-            // there is no __val_a in __b, so __b in the defference {__a}/{__b};
+            // there is no __val_a in __b, so __b in the difference {__a}/{__b};
         }
         else
         {

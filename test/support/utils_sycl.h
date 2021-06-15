@@ -21,11 +21,11 @@
 
 #include <iterator>
 #include <CL/sycl.hpp>
-#if _ONEDPL_FPGA_DEVICE
+#if ONEDPL_FPGA_DEVICE
 #    include <CL/sycl/INTEL/fpga_extensions.hpp>
 #endif
 
-#include "pstl_test_config.h"
+#include "test_config.h"
 
 #include _PSTL_TEST_HEADER(iterator)
 #include "oneapi/dpl/pstl/hetero/dpcpp/parallel_backend_sycl.h"
@@ -58,11 +58,10 @@ namespace TestUtils
             [&val](const T& x) { return x == val; });
     }
 
-    template<typename Op, ::std::size_t CallNumber>
-    struct unique_kernel_name {};
-
-    template<typename Policy, int idx>
-    using new_kernel_name = unique_kernel_name<typename ::std::decay<Policy>::type, idx>;
+    template <typename Op, ::std::size_t CallNumber>
+    using unique_kernel_name = oneapi::dpl::__par_backend_hetero::__unique_kernel_name<Op, CallNumber> ;
+    template <typename Policy, int idx>
+    using new_kernel_name = oneapi::dpl::__par_backend_hetero::__new_kernel_name<Policy, idx>;
 
     auto async_handler = [](sycl::exception_list ex_list) {
         for (auto& ex : ex_list) {
@@ -86,7 +85,7 @@ namespace TestUtils
         return oneapi::dpl::execution::make_device_policy<_NewKernelName>(::std::forward<_Policy>(__policy));
     }
 
-#if _ONEDPL_FPGA_DEVICE
+#if ONEDPL_FPGA_DEVICE
     template <typename _NewKernelName, typename _Policy,
               oneapi::dpl::__internal::__enable_if_fpga_execution_policy<_Policy, int> = 0>
     auto
@@ -141,7 +140,7 @@ namespace TestUtils
             // __functor_type(see kernel_type definition) type field which doesn't have any pointers in it's name.
             using kernel_name = unique_kernel_name<Op, CallNumber>;
             iterator_invoker<::std::random_access_iterator_tag, /*IsReverse*/ ::std::false_type>()(
-#if _ONEDPL_FPGA_DEVICE
+#if ONEDPL_FPGA_DEVICE
                 oneapi::dpl::execution::make_fpga_policy</*unroll_factor = */ 1, kernel_name>(my_queue), op, ::std::forward<T>(rest)...);
 #else
                 oneapi::dpl::execution::make_device_policy<kernel_name>(my_queue), op, ::std::forward<T>(rest)...);
@@ -312,7 +311,7 @@ namespace TestUtils
     }
 
     // use the function carefully due to temporary accessor creation.
-    // Race conditiion between host and device may be occured
+    // Race conditiion between host and device may be occurred
     // if we work with the buffer host memory when kernel is invoked on device
     template <typename Iter, sycl::access::mode mode = sycl::access::mode::read_write>
     typename ::std::iterator_traits<Iter>::pointer

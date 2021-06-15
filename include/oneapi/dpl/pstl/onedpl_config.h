@@ -24,7 +24,7 @@
 #endif
 
 #define ONEDPL_VERSION_MAJOR 2021
-#define ONEDPL_VERSION_MINOR 2
+#define ONEDPL_VERSION_MINOR 4
 #define ONEDPL_VERSION_PATCH 0
 
 #if defined(ONEDPL_USE_DPCPP_BACKEND)
@@ -98,6 +98,12 @@
 #    define _ONEDPL_CONSTEXPR_VAR constexpr
 #endif
 
+#if (__cplusplus >= 201402L)
+#    define _ONEDPL_CPP14_CONSTEXPR constexpr
+#else
+#    define _ONEDPL_CPP14_CONSTEXPR
+#endif
+
 // Check the user-defined macro for warnings
 #if !defined(_PSTL_USAGE_WARNINGS) && defined(PSTL_USAGE_WARNINGS)
 #    define _PSTL_USAGE_WARNINGS PSTL_USAGE_WARNINGS
@@ -163,7 +169,7 @@
 #    define _ONEDPL_PRAGMA_SIMD_EXCLUSIVE_SCAN(PRM)
 #endif
 
-// Requred to check if libstdc++ is 5.1.0 or greater
+// Required to check if libstdc++ is 5.1.0 or greater
 #if defined(__clang__)
 #    if __GLIBCXX__ && __has_include(<experimental/any>)
 #        define _ONEDPL_LIBSTDCXX_5_OR_GREATER 1

@@ -13,7 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "support/pstl_test_config.h"
+#include "support/test_config.h"
 
 #include _PSTL_TEST_HEADER(execution)
 #include _PSTL_TEST_HEADER(algorithm)
@@ -47,7 +47,7 @@ struct test_shift
         algo.check(res, first, m, first_exp, n);
     }
 
-#if _ONEDPL_BACKEND_SYCL
+#if TEST_DPCPP_BACKEND_PRESENT
     template <typename Policy, typename It, typename Algo>
     oneapi::dpl::__internal::__enable_if_hetero_execution_policy<Policy, void>
     operator()(Policy&& exec, It first, typename ::std::iterator_traits<It>::difference_type m,
@@ -157,7 +157,7 @@ struct shift_right_algo
         typename ::std::iterator_traits<It>::difference_type n)
     {
         //if (n > 0 && n < m), returns first + n. Otherwise, if n  > 0, returns last.
-        //Otherwise, returns firts.
+        //Otherwise, returns first.
         It __last = ::std::next(first, m);
         auto res_exp = (n > 0 && n < m ? ::std::next(first, n) : (n > 0 ? __last : first));
 
@@ -206,6 +206,5 @@ main()
        test_shift_by_type<int32_t>(m, n);
     }
 
-    ::std::cout << TestUtils::done() << ::std::endl;
-    return 0;
+    return TestUtils::done();
 }

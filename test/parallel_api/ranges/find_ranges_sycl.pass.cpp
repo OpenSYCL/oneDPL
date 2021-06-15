@@ -15,7 +15,7 @@
 
 #include <oneapi/dpl/execution>
 
-#include "support/pstl_test_config.h"
+#include "support/test_config.h"
 
 #if _ENABLE_RANGES_TESTING
 #include <oneapi/dpl/ranges>
@@ -60,9 +60,7 @@ main()
     EXPECT_TRUE(res1 == idx_val, "wrong effect from 'find' with sycl ranges");
     EXPECT_TRUE(res2 == idx_val, "wrong effect from 'find_if' with sycl ranges");
     EXPECT_TRUE(res3 == idx_val, "wrong effect from 'find_if_not' with sycl ranges");
-
 #endif //_ENABLE_RANGES_TESTING
 
-    ::std::cout << TestUtils::done() << ::std::endl;
-    return 0;
+    return TestUtils::done(_ENABLE_RANGES_TESTING);
 }

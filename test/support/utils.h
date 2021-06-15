@@ -16,6 +16,10 @@
 // File contains common utilities that tests rely on
 
 // Do not #include <algorithm>, because if we do we will not detect accidental dependencies.
+#include "test_config.h"
+
+#include _PSTL_TEST_HEADER(execution)
+
 #include <atomic>
 #include <cstdint>
 #include <cstdlib>
@@ -26,12 +30,11 @@
 #include <sstream>
 #include <vector>
 
-#include "pstl_test_config.h"
-
-#include _PSTL_TEST_HEADER(execution)
 #include "iterator_utils.h"
 
-#if _ONEDPL_BACKEND_SYCL
+#define _SKIP_RETURN_CODE 77
+
+#if TEST_DPCPP_BACKEND_PRESENT
 #include "utils_sycl.h"
 #endif
 
@@ -56,11 +59,15 @@ class Sequence;
 #define EXPECT_FALSE(condition, message) ::TestUtils::expect(false, condition, __FILE__, __LINE__, message)
 
 // Check that expected and actual are equal and have the same type.
-#define EXPECT_EQ(expected, actual, message) ::TestUtils::expect_equal(expected, actual, __FILE__, __LINE__, message)
+#define EXPECT_EQ(expected, actual, message) ::TestUtils::expect_equal_val(expected, actual, __FILE__, __LINE__, message)
 
 // Check that sequences started with expected and actual and have had size n are equal and have the same type.
 #define EXPECT_EQ_N(expected, actual, n, message)                                                                      \
     ::TestUtils::expect_equal(expected, actual, n, __FILE__, __LINE__, message)
+
+// Check the expected and actual ranges are equal.
+#define EXPECT_EQ_RANGES(expected, actual, message)                                                                      \
+    ::TestUtils::expect_equal(expected, actual, __FILE__, __LINE__, message)
 
 // Issue error message from outstr, adding a newline.
 // Real purpose of this routine is to have a place to hang a breakpoint.
@@ -87,7 +94,7 @@ expect(bool expected, bool condition, const char* file, int32_t line, const char
 // Function must be able to detect const differences between expected and actual.
 template <typename T>
 void
-expect_equal(T& expected, T& actual, const char* file, int32_t line, const char* message)
+expect_equal_val(T& expected, T& actual, const char* file, int32_t line, const char* message)
 {
     if (!(expected == actual))
     {
@@ -98,9 +105,9 @@ expect_equal(T& expected, T& actual, const char* file, int32_t line, const char*
     }
 }
 
-template <typename T>
+template <typename R1, typename R2>
 void
-expect_equal(Sequence<T>& expected, Sequence<T>& actual, const char* file, int32_t line, const char* message)
+expect_equal(const R1& expected, const R2& actual, const char* file, int32_t line, const char* message)
 {
     size_t n = expected.size();
     size_t m = actual.size();
@@ -124,6 +131,13 @@ expect_equal(Sequence<T>& expected, Sequence<T>& actual, const char* file, int32
             ++error_count;
         }
     }
+}
+
+template <typename T>
+void
+expect_equal_val(Sequence<T>& expected, Sequence<T>& actual, const char* file, int32_t line, const char* message)
+{
+    expect_equal(expected, actual, file, line, message);
 }
 
 template <typename Iterator1, typename Iterator2, typename Size>
@@ -178,7 +192,7 @@ struct MemoryChecker {
     MemoryChecker(MemoryChecker&& other) : _value(other.value()) {
         // check for EXPECT_TRUE(state() != alive_state, ...) has not been done since
         // compiler can optimize out the move ctor call that results in false positive failure
-        EXPECT_TRUE(other.state() == alive_state, "wrong effect from MemoryChecker(MemoryChecker&&): attemp to construct an object from non-existing object");
+        EXPECT_TRUE(other.state() == alive_state, "wrong effect from MemoryChecker(MemoryChecker&&): attempt to construct an object from non-existing object");
         // set constructed state and increment counter for living object
         inc_alive_objects();
         _state = alive_state;
@@ -186,15 +200,15 @@ struct MemoryChecker {
     MemoryChecker(const MemoryChecker& other) : _value(other.value()) {
         // check for EXPECT_TRUE(state() != alive_state, ...) has not been done since
         // compiler can optimize out the copy ctor call that results in false positive failure
-        EXPECT_TRUE(other.state() == alive_state, "wrong effect from MemoryChecker(const MemoryChecker&): attemp to construct an object from non-existing object");
+        EXPECT_TRUE(other.state() == alive_state, "wrong effect from MemoryChecker(const MemoryChecker&): attempt to construct an object from non-existing object");
         // set constructed state and increment counter for living object
         inc_alive_objects();
         _state = alive_state;
     }
     MemoryChecker& operator=(MemoryChecker&& other) {
         // check if we do not assign over uninitialized memory
-        EXPECT_TRUE(state() == alive_state, "wrong effect from MemoryChecker::operator=(MemoryChecker&& other): attemp to assign to non-existing object");
-        EXPECT_TRUE(other.state() == alive_state, "wrong effect from MemoryChecker::operator=(MemoryChecker&& other): attemp to assign from non-existing object");
+        EXPECT_TRUE(state() == alive_state, "wrong effect from MemoryChecker::operator=(MemoryChecker&& other): attempt to assign to non-existing object");
+        EXPECT_TRUE(other.state() == alive_state, "wrong effect from MemoryChecker::operator=(MemoryChecker&& other): attempt to assign from non-existing object");
         // just assign new value, counter is the same, state is the same
         _value = other.value();
 
@@ -202,8 +216,8 @@ struct MemoryChecker {
     }
     MemoryChecker& operator=(const MemoryChecker& other) {
         // check if we do not assign over uninitialized memory
-        EXPECT_TRUE(state() == alive_state, "wrong effect from MemoryChecker::operator=(const MemoryChecker& other): attemp to assign to non-existing object");
-        EXPECT_TRUE(other.state() == alive_state, "wrong effect from MemoryChecker::operator=(const MemoryChecker& other): attemp to assign from non-existing object");
+        EXPECT_TRUE(state() == alive_state, "wrong effect from MemoryChecker::operator=(const MemoryChecker& other): attempt to assign to non-existing object");
+        EXPECT_TRUE(other.state() == alive_state, "wrong effect from MemoryChecker::operator=(const MemoryChecker& other): attempt to assign from non-existing object");
         // just assign new value, counter is the same, state is the same
         _value = other.value();
 
@@ -211,7 +225,7 @@ struct MemoryChecker {
     }
     ~MemoryChecker() {
         // check if we do not double destruct the object
-        EXPECT_TRUE(state() == alive_state, "wrong effect from ~MemoryChecker(): attemp to destroy non-existing object");
+        EXPECT_TRUE(state() == alive_state, "wrong effect from ~MemoryChecker(): attempt to destroy non-existing object");
         // set destructed state and decrement counter for living object
         static_cast<volatile ::std::size_t&>(_state) = dead_state;
         dec_alive_objects();
@@ -361,7 +375,7 @@ class Sequence
         return m_storage.data();
     }
     typename ::std::vector<T>::reference operator[](size_t j) { return m_storage[j]; }
-    const T& operator[](size_t j) const { return m_storage[j]; }
+    typename ::std::vector<T>::const_reference operator[](size_t j) const { return m_storage[j]; }
 
     // Fill with given value
     void
@@ -571,43 +585,32 @@ class AssocOp
 template <typename T>
 struct Matrix2x2
 {
-    T a[2][2];
-    Matrix2x2() : a{{1, 0}, {0, 1}} {}
-    Matrix2x2(T x, T y) : a{{0, x}, {x, y}} {}
-    //Explicit definition of a copy constructor and assignment operator to avoid an error for some compilers
-#if !_PSTL_ICL_19_VC14_VC141_TEST_SCAN_RELEASE_BROKEN
-    Matrix2x2(const Matrix2x2& m) : a{{m.a[0][0], m.a[0][1]}, {m.a[1][0], m.a[1][1]}} {}
-    Matrix2x2&
-    operator=(const Matrix2x2& m)
-    {
-        a[0][0] = m.a[0][0], a[0][1] = m.a[0][1], a[1][0] = m.a[1][0], a[1][1] = m.a[1][1];
-        return *this;
-    }
-#endif
+    T a00, a01, a10, a11;
+    Matrix2x2() : a00(1), a01(0), a10(0), a11(1) {}
+    Matrix2x2(T x, T y) : a00(0), a01(x), a10(x), a11(y) {}
 };
 
 template <typename T>
 bool
 operator==(const Matrix2x2<T>& left, const Matrix2x2<T>& right)
 {
-    return left.a[0][0] == right.a[0][0] && left.a[0][1] == right.a[0][1] && left.a[1][0] == right.a[1][0] &&
-           left.a[1][1] == right.a[1][1];
+    return left.a00 == right.a00 && left.a01 == right.a01 && left.a10 == right.a10 && left.a11 == right.a11;
 }
 
 template <typename T>
-Matrix2x2<T>
-multiply_matrix(const Matrix2x2<T>& left, const Matrix2x2<T>& right)
+struct multiply_matrix
 {
-    Matrix2x2<T> result;
-    for (int32_t i = 0; i < 2; ++i)
+    Matrix2x2<T> operator()(const Matrix2x2<T>& left, const Matrix2x2<T>& right) const
     {
-        for (int32_t j = 0; j < 2; ++j)
-        {
-            result.a[i][j] = left.a[i][0] * right.a[0][j] + left.a[i][1] * right.a[1][j];
-        }
+        Matrix2x2<T> result;
+        result.a00 = left.a00 * right.a00 + left.a01 * right.a10;
+        result.a01 = left.a00 * right.a01 + left.a01 * right.a11;
+        result.a10 = left.a10 * right.a00 + left.a11 * right.a10;
+        result.a11 = left.a10 * right.a01 + left.a11 * right.a11;
+
+        return result;
     }
-    return result;
-}
+};
 
 // Check that Intel(R) Threading Building Blocks header files are not used when parallel policies are off
 #if !_ONEDPL_USE_PAR_POLICIES
@@ -646,7 +649,7 @@ struct invoke_on_all_policies
     {
 
         invoke_on_all_host_policies()(op, ::std::forward<T>(rest)...);
-#if _ONEDPL_BACKEND_SYCL
+#if TEST_DPCPP_BACKEND_PRESENT
         invoke_on_all_hetero_policies<CallNumber>()(op, ::std::forward<T>(rest)...);
 #endif
 
@@ -793,14 +796,23 @@ transform_reduce_serial(InputIterator first, InputIterator last, T init, BinaryO
     return init;
 }
 
-static const char*
-done()
+int
+done(int is_done = 1)
 {
+    if(is_done)
+    {
 #if _PSTL_TEST_SUCCESSFUL_KEYWORD
-    return "done";
+        ::std::cout << "done\n";
 #else
-    return "passed";
+        ::std::cout << "passed\n";
 #endif
+        return 0;
+    }
+    else
+    {
+        ::std::cout <<"Skipped\n";
+        return _SKIP_RETURN_CODE;
+    }
 }
 
 // test_algo_basic_* functions are used to execute

@@ -13,7 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "support/pstl_test_config.h"
+#include "support/test_config.h"
 
 #include _PSTL_TEST_HEADER(execution)
 #include _PSTL_TEST_HEADER(algorithm)
@@ -28,6 +28,7 @@
 #include <cmath>
 
 #if !defined(_PSTL_TEST_FOR_EACH) && \
+    !defined(_PSTL_TEST_FOR_EACH_STRUCTURED_BINDING) && \
     !defined(_PSTL_TEST_TRANSFORM_REDUCE_UNARY) && \
     !defined(_PSTL_TEST_TRANSFORM_REDUCE_BINARY) && \
     !defined(_PSTL_TEST_COUNT_IF) && \
@@ -51,12 +52,16 @@
 #define _PSTL_TEST_STABLE_SORT
 #define _PSTL_TEST_LEXICOGRAPHICAL_COMPIARE
 #define _PSTL_TEST_COUNTING_ZIP_TRANSFORM
+#if (__cplusplus >= 201703L)
+#   define _PSTL_TEST_FOR_EACH_STRUCTURED_BINDING
+#   define _PSTL_TEST_EQUAL_STRUCTURED_BINDING
+#endif
 #endif
 
 using namespace TestUtils;
 
 //This macro is required for the tests to work correctly in CI with tbb-backend.
-#if _ONEDPL_BACKEND_SYCL
+#if TEST_DPCPP_BACKEND_PRESENT
 #include "support/utils_sycl.h"
 
 // just a temporary include and NoOp functor to check
@@ -121,6 +126,37 @@ struct test_for_each
         EXPECT_TRUE(check_values(host_first1, host_first1 + n, value + 1), "wrong effect from for_each(tuple)");
     }
 };
+
+#if defined(_PSTL_TEST_FOR_EACH_STRUCTURED_BINDING)
+struct test_for_each_structured_binding
+{
+    template <typename Policy, typename Iterator1, typename Size>
+    void
+    operator()(Policy&& exec, Iterator1 first1, Iterator1 last1, Size n)
+    {
+        typedef typename ::std::iterator_traits<Iterator1>::value_type T1;
+        auto host_first1 = get_host_pointer(first1);
+
+        auto tuple_first1 = oneapi::dpl::make_zip_iterator(first1, first1);
+        auto tuple_last1 = oneapi::dpl::make_zip_iterator(last1, last1);
+        auto value = T1(6);
+        auto f = [](T1& val) { ++val; };
+        ::std::fill(host_first1, host_first1 + n, value);
+
+        ::std::for_each(make_new_policy<new_kernel_name<Policy, 0>>(exec), tuple_first1, tuple_last1,
+                        [f](auto value) {
+                            auto [x, y] = value;
+                            f(x);
+                            f(y);
+                        });
+#if _PSTL_SYCL_TEST_USM
+        exec.queue().wait_and_throw();
+#endif
+        host_first1 = get_host_pointer(first1);
+        EXPECT_TRUE(check_values(host_first1, host_first1 + n, value + 2), "wrong effect from for_each(tuple)");
+    }
+};
+#endif // _PSTL_TEST_FOR_EACH_STRUCTURED_BINDING
 
 struct test_transform_reduce_unary
 {
@@ -268,6 +304,53 @@ struct test_equal
         EXPECT_TRUE(!is_equal, "wrong effect from equal(tuple) 2");
     }
 };
+
+#if defined(_PSTL_TEST_EQUAL_STRUCTURED_BINDING)
+struct test_equal_structured_binding
+{
+    template <typename Policy, typename Iterator1, typename Iterator2, typename Size>
+    void
+    operator()(Policy&& exec, Iterator1 first1, Iterator1 last1, Iterator2 first2, Iterator2 /* last2 */, Size n)
+    {
+        using T = typename ::std::iterator_traits<Iterator1>::value_type;
+        auto value = T(42);
+        auto host_first1 = get_host_pointer(first1);
+        auto host_first2 = get_host_pointer(first2);
+        ::std::iota(host_first1, host_first1 + n, value);
+        ::std::iota(host_first2, host_first2 + n, value);
+
+        auto tuple_first1 = oneapi::dpl::make_zip_iterator(first1, first1);
+        auto tuple_last1 = oneapi::dpl::make_zip_iterator(last1, last1);
+        auto tuple_first2 = oneapi::dpl::make_zip_iterator(first2, first2);
+
+        auto compare = [](auto tuple_first1, auto tuple_first2)
+        {
+            const auto& [a, b] = tuple_first1;
+            const auto& [c, d] = tuple_first2;
+
+            static_assert(::std::is_reference<decltype(a)>::value, "tuple element type is not a reference");
+            static_assert(::std::is_reference<decltype(b)>::value, "tuple element type is not a reference");
+            static_assert(::std::is_reference<decltype(c)>::value, "tuple element type is not a reference");
+            static_assert(::std::is_reference<decltype(d)>::value, "tuple element type is not a reference");
+
+            return (a == c) && (b == d);
+        };
+
+        bool is_equal = ::std::equal(make_new_policy<new_kernel_name<Policy, 0>>(exec), tuple_first1, tuple_last1, tuple_first2,
+                                     compare);
+#if _PSTL_SYCL_TEST_USM
+        exec.queue().wait_and_throw();
+#endif
+        EXPECT_TRUE(is_equal, "wrong effect from equal(tuple with use of structured binding) 1");
+
+        host_first2 = get_host_pointer(first2);
+        *(host_first2 + n - 1) = T{0};
+        is_equal = ::std::equal(make_new_policy<new_kernel_name<Policy, 1>>(exec), tuple_first1, tuple_last1, tuple_first2,
+                                compare);
+        EXPECT_TRUE(!is_equal, "wrong effect from equal(tuple with use of structured binding) 2");
+    }
+};
+#endif // _PSTL_TEST_EQUAL_STRUCTURED_BINDING
 
 struct test_find_if
 {
@@ -588,10 +671,14 @@ struct test_counting_zip_transform
 int32_t
 main()
 {
-#if _ONEDPL_BACKEND_SYCL
+#if TEST_DPCPP_BACKEND_PRESENT
 #if defined(_PSTL_TEST_FOR_EACH)
     PRINT_DEBUG("test_for_each");
     test1buffer<int32_t, test_for_each>();
+#endif
+#if defined(_PSTL_TEST_FOR_EACH_STRUCTURED_BINDING)
+    PRINT_DEBUG("test_for_each_structured_binding");
+    test1buffer<int32_t, test_for_each_structured_binding>();
 #endif
 #if defined(_PSTL_TEST_TRANSFORM_REDUCE_UNARY)
     PRINT_DEBUG("test_transform_reduce_unary");
@@ -608,6 +695,10 @@ main()
 #if defined(_PSTL_TEST_EQUAL)
     PRINT_DEBUG("test_equal");
     test2buffers<int32_t, test_equal>();
+#endif
+#if defined(_PSTL_TEST_EQUAL_STRUCTURED_BINDING)
+    PRINT_DEBUG("test_equal_structured_binding");
+    test2buffers<int32_t, test_equal_structured_binding>();
 #endif
 #if defined(_PSTL_TEST_INCLUSIVE_SCAN)
     PRINT_DEBUG("test_inclusive_scan");
@@ -627,7 +718,7 @@ main()
 #endif
 // sorting with zip iterator does not meet limits of RAM usage on FPGA.
 // TODO: try to investigate and reduce RAM consumption
-#if defined(_PSTL_TEST_STABLE_SORT) && !_ONEDPL_FPGA_DEVICE
+#if defined(_PSTL_TEST_STABLE_SORT) && !ONEDPL_FPGA_DEVICE
     PRINT_DEBUG("test_stable_sort");
     test2buffers<int32_t, test_stable_sort>();
 #endif
@@ -640,6 +731,5 @@ main()
     test2buffers<int32_t, test_counting_zip_transform>();
 #endif
 #endif
-    ::std::cout << done() << ::std::endl;
-    return 0;
+    return done(TEST_DPCPP_BACKEND_PRESENT);
 }

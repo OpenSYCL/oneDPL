@@ -49,8 +49,9 @@ __pattern_walk1(_ExecutionPolicy&& __exec, _ForwardIterator __first, _ForwardIte
         oneapi::dpl::__ranges::__get_sycl_range<__par_backend_hetero::access_mode::read_write, _ForwardIterator>();
     auto __buf = __keep(__first, __last);
 
-    oneapi::dpl::__par_backend_hetero::__parallel_for(__exec, unseq_backend::walk_n<_ExecutionPolicy, _Function>{__f},
-                                                      __n, __buf.all_view())
+    oneapi::dpl::__par_backend_hetero::__parallel_for(::std::forward<_ExecutionPolicy>(__exec),
+                                                      unseq_backend::walk_n<_ExecutionPolicy, _Function>{__f}, __n,
+                                                      __buf.all_view())
         .wait();
 }
 
@@ -73,7 +74,7 @@ __pattern_walk1_n(_ExecutionPolicy&& __exec, _ForwardIterator __first, _Size __n
 //------------------------------------------------------------------------
 
 // TODO: A tag _IsSync is used for provide a patterns call pipeline, where the last one should be synchronous
-// Probably it should be re-designed by a pipeline approach, when a patern returns some sync obejects
+// Probably it should be re-designed by a pipeline approach, when a pattern returns some sync obejects
 // and ones are combined into a "pipeline" (probably like Range pipeline)
 template <typename _IsSync = ::std::true_type,
           __par_backend_hetero::access_mode __acc_mode1 = __par_backend_hetero::access_mode::read,
@@ -404,13 +405,16 @@ __pattern_min_element(_ExecutionPolicy&& __exec, _Iterator __first, _Iterator __
     auto __keep = oneapi::dpl::__ranges::__get_sycl_range<__par_backend_hetero::access_mode::read, _Iterator>();
     auto __buf = __keep(__first, __last);
 
-    auto __ret_idx = oneapi::dpl::__par_backend_hetero::__parallel_transform_reduce<_ReduceValueType>(
-        ::std::forward<_ExecutionPolicy>(__exec),
-        unseq_backend::transform_init<_ExecutionPolicy, decltype(__identity_reduce_fn), decltype(__identity_init_fn)>{
-            __identity_reduce_fn, __identity_init_fn},
-        __identity_reduce_fn,
-        unseq_backend::reduce<_ExecutionPolicy, decltype(__identity_reduce_fn), _ReduceValueType>{__identity_reduce_fn},
-        __buf.all_view());
+    auto __ret_idx =
+        oneapi::dpl::__par_backend_hetero::__parallel_transform_reduce<_ReduceValueType>(
+            ::std::forward<_ExecutionPolicy>(__exec),
+            unseq_backend::transform_init<_ExecutionPolicy, decltype(__identity_reduce_fn),
+                                          decltype(__identity_init_fn)>{__identity_reduce_fn, __identity_init_fn},
+            __identity_reduce_fn,
+            unseq_backend::reduce<_ExecutionPolicy, decltype(__identity_reduce_fn), _ReduceValueType>{
+                __identity_reduce_fn},
+            __buf.all_view())
+            .get();
 
     return __first + ::std::get<0>(__ret_idx);
 }
@@ -490,15 +494,17 @@ __pattern_minmax_element(_ExecutionPolicy&& __exec, _Iterator __first, _Iterator
     auto __keep = oneapi::dpl::__ranges::__get_sycl_range<__par_backend_hetero::access_mode::read, _Iterator>();
     auto __buf = __keep(__first, __last);
 
-    _ReduceValueType __ret = oneapi::dpl::__par_backend_hetero::__parallel_transform_reduce<_ReduceValueType,
-                                                                                            /*__grainsize=*/8>(
-        ::std::forward<_ExecutionPolicy>(__exec),
-        unseq_backend::transform_init<_ExecutionPolicy, __identity_reduce_fn<_Compare>, decltype(__identity_init_fn)>{
-            __identity_reduce_fn<_Compare>{__comp}, __identity_init_fn},
-        __identity_reduce_fn<_Compare>{__comp},
-        unseq_backend::reduce<_ExecutionPolicy, __identity_reduce_fn<_Compare>, _ReduceValueType>{
-            __identity_reduce_fn<_Compare>{__comp}},
-        __buf.all_view());
+    auto __ret = oneapi::dpl::__par_backend_hetero::__parallel_transform_reduce<_ReduceValueType,
+                                                                                /*__grainsize=*/8>(
+                     ::std::forward<_ExecutionPolicy>(__exec),
+                     unseq_backend::transform_init<_ExecutionPolicy, __identity_reduce_fn<_Compare>,
+                                                   decltype(__identity_init_fn)>{__identity_reduce_fn<_Compare>{__comp},
+                                                                                 __identity_init_fn},
+                     __identity_reduce_fn<_Compare>{__comp},
+                     unseq_backend::reduce<_ExecutionPolicy, __identity_reduce_fn<_Compare>, _ReduceValueType>{
+                         __identity_reduce_fn<_Compare>{__comp}},
+                     __buf.all_view())
+                     .get();
     return ::std::make_pair<_Iterator, _Iterator>(__first + ::std::get<0>(__ret), __first + ::std::get<1>(__ret));
 }
 
@@ -618,12 +624,14 @@ __pattern_count(_ExecutionPolicy&& __exec, _Iterator __first, _Iterator __last, 
     auto __buf = __keep(__first, __last);
 
     return oneapi::dpl::__par_backend_hetero::__parallel_transform_reduce<_ReduceValueType>(
-        ::std::forward<_ExecutionPolicy>(__exec),
-        unseq_backend::transform_init<_ExecutionPolicy, decltype(__identity_reduce_fn), decltype(__identity_init_fn)>{
-            __identity_reduce_fn, __identity_init_fn},
-        __identity_reduce_fn,
-        unseq_backend::reduce<_ExecutionPolicy, decltype(__identity_reduce_fn), _ReduceValueType>{__identity_reduce_fn},
-        __buf.all_view());
+               ::std::forward<_ExecutionPolicy>(__exec),
+               unseq_backend::transform_init<_ExecutionPolicy, decltype(__identity_reduce_fn),
+                                             decltype(__identity_init_fn)>{__identity_reduce_fn, __identity_init_fn},
+               __identity_reduce_fn,
+               unseq_backend::reduce<_ExecutionPolicy, decltype(__identity_reduce_fn), _ReduceValueType>{
+                   __identity_reduce_fn},
+               __buf.all_view())
+        .get();
 }
 
 //------------------------------------------------------------------------
@@ -640,10 +648,13 @@ __pattern_any_of(_ExecutionPolicy&& __exec, _Iterator __first, _Iterator __last,
 
     using _Predicate = oneapi::dpl::unseq_backend::single_match_pred<_ExecutionPolicy, _Pred>;
 
-    return __par_backend_hetero::__parallel_or(
-        ::std::forward<_ExecutionPolicy>(__exec),
-        __par_backend_hetero::make_iter_mode<__par_backend_hetero::access_mode::read>(__first),
-        __par_backend_hetero::make_iter_mode<__par_backend_hetero::access_mode::read>(__last), _Predicate{__pred});
+    auto __keep = oneapi::dpl::__ranges::__get_sycl_range<__par_backend_hetero::access_mode::read, _Iterator>();
+    auto __buf = __keep(__first, __last);
+
+    return oneapi::dpl::__par_backend_hetero::__parallel_find_or(
+        __par_backend_hetero::make_wrapped_policy<__par_backend_hetero::__or_policy_wrapper>(
+            ::std::forward<_ExecutionPolicy>(__exec)),
+        _Predicate{__pred}, __par_backend_hetero::__parallel_or_tag{}, __buf.all_view());
 }
 
 //------------------------------------------------------------------------
@@ -893,38 +904,6 @@ __pattern_mismatch(_ExecutionPolicy&& __exec, _Iterator1 __first1, _Iterator1 __
 // copy_if
 //------------------------------------------------------------------------
 
-// create mask
-template <typename _Pred, typename _Tp>
-struct __create_mask
-{
-    _Pred __pred;
-
-    template <typename _Idx, typename _Input>
-    _Tp
-    operator()(const _Idx __idx, const _Input& __input) const
-    {
-        using ::std::get;
-        // 1. apply __pred
-        auto __temp = __pred(get<0>(__input[__idx]));
-        // 2. initialize mask
-        get<1>(__input[__idx]) = __temp;
-        return _Tp(__temp);
-    }
-};
-
-// get mask without predicate application
-template <typename _Tp, const int N>
-struct __get_mask
-{
-    template <typename _Idx, typename _Input>
-    _Tp
-    operator()(const _Idx __idx, const _Input& __input) const
-    {
-        using ::std::get;
-        return _Tp(get<N>(__input[__idx]));
-    }
-};
-
 template <typename _ExecutionPolicy, typename _Iterator1, typename _IteratorOrTuple, typename _CreateMaskOp,
           typename _CopyByMaskOp>
 oneapi::dpl::__internal::__enable_if_hetero_execution_policy<
@@ -975,7 +954,7 @@ __pattern_scan_copy(_ExecutionPolicy&& __exec, _Iterator1 __first, _Iterator1 __
         // global scan
         __copy_by_mask_op);
 
-    return ::std::make_pair(__output_first + __res.first, __res.second);
+    return ::std::make_pair(__output_first + __n, __res.get());
 }
 
 template <typename _ExecutionPolicy, typename _Iterator1, typename _Iterator2, typename _Predicate>
@@ -986,7 +965,7 @@ __pattern_copy_if(_ExecutionPolicy&& __exec, _Iterator1 __first, _Iterator1 __la
     using _It1DifferenceType = typename ::std::iterator_traits<_Iterator1>::difference_type;
     using _ReduceOp = ::std::plus<_It1DifferenceType>;
 
-    __create_mask<_Predicate, _It1DifferenceType> __create_mask_op{__pred};
+    unseq_backend::__create_mask<_Predicate, _It1DifferenceType> __create_mask_op{__pred};
     unseq_backend::__copy_by_mask<_ReduceOp, /*inclusive*/ ::std::true_type, 1> __copy_by_mask_op;
 
     auto __result = __pattern_scan_copy(::std::forward<_ExecutionPolicy>(__exec), __first, __last, __result_first,
@@ -1011,7 +990,7 @@ __pattern_partition_copy(_ExecutionPolicy&& __exec, _Iterator1 __first, _Iterato
     using _It1DifferenceType = typename ::std::iterator_traits<_Iterator1>::difference_type;
     using _ReduceOp = ::std::plus<_It1DifferenceType>;
 
-    __create_mask<_UnaryPredicate, _It1DifferenceType> __create_mask_op{__pred};
+    unseq_backend::__create_mask<_UnaryPredicate, _It1DifferenceType> __create_mask_op{__pred};
     unseq_backend::__partition_by_mask<_ReduceOp, /*inclusive*/ ::std::true_type> __copy_by_mask_op{_ReduceOp{}};
 
     auto __result = __pattern_scan_copy(
@@ -1168,13 +1147,16 @@ __pattern_is_partitioned(_ExecutionPolicy&& __exec, _Iterator __first, _Iterator
     auto __keep = oneapi::dpl::__ranges::__get_sycl_range<__par_backend_hetero::access_mode::read, _Iterator>();
     auto __buf = __keep(__first, __last);
 
-    _ReduceValueType __res = oneapi::dpl::__par_backend_hetero::__parallel_transform_reduce<_ReduceValueType>(
-        ::std::forward<_ExecutionPolicy>(__exec),
-        unseq_backend::transform_init<_ExecutionPolicy, decltype(__identity_reduce_fn), decltype(__identity_init_fn)>{
-            __identity_reduce_fn, __identity_init_fn},
-        __identity_reduce_fn,
-        unseq_backend::reduce<_ExecutionPolicy, decltype(__identity_reduce_fn), _ReduceValueType>{__identity_reduce_fn},
-        __buf.all_view());
+    auto __res =
+        oneapi::dpl::__par_backend_hetero::__parallel_transform_reduce<_ReduceValueType>(
+            ::std::forward<_ExecutionPolicy>(__exec),
+            unseq_backend::transform_init<_ExecutionPolicy, decltype(__identity_reduce_fn),
+                                          decltype(__identity_init_fn)>{__identity_reduce_fn, __identity_init_fn},
+            __identity_reduce_fn,
+            unseq_backend::reduce<_ExecutionPolicy, decltype(__identity_reduce_fn), _ReduceValueType>{
+                __identity_reduce_fn},
+            __buf.all_view())
+            .get();
 
     return __broken != __identity_reduce_fn(_ReduceValueType{__all_true}, __res);
 }
@@ -1450,13 +1432,16 @@ __pattern_lexicographical_compare(_ExecutionPolicy&& __exec, _Iterator1 __first1
     auto __keep2 = oneapi::dpl::__ranges::__get_sycl_range<__par_backend_hetero::access_mode::read, _Iterator2>();
     auto __buf2 = __keep2(__first2, __first2 + __shared_size);
 
-    auto __ret_idx = oneapi::dpl::__par_backend_hetero::__parallel_transform_reduce<_ReduceValueType>(
-        ::std::forward<_ExecutionPolicy>(__exec),
-        unseq_backend::transform_init<_ExecutionPolicy, decltype(__identity_reduce_fn), decltype(__identity_init_fn)>{
-            __identity_reduce_fn, __identity_init_fn},
-        __identity_reduce_fn,
-        unseq_backend::reduce<_ExecutionPolicy, decltype(__identity_reduce_fn), _ReduceValueType>{__identity_reduce_fn},
-        __buf1.all_view(), __buf2.all_view());
+    auto __ret_idx =
+        oneapi::dpl::__par_backend_hetero::__parallel_transform_reduce<_ReduceValueType>(
+            ::std::forward<_ExecutionPolicy>(__exec),
+            unseq_backend::transform_init<_ExecutionPolicy, decltype(__identity_reduce_fn),
+                                          decltype(__identity_init_fn)>{__identity_reduce_fn, __identity_init_fn},
+            __identity_reduce_fn,
+            unseq_backend::reduce<_ExecutionPolicy, decltype(__identity_reduce_fn), _ReduceValueType>{
+                __identity_reduce_fn},
+            __buf1.all_view(), __buf2.all_view())
+            .get();
 
     return __ret_idx ? __ret_idx == 1 : (__last1 - __first1) < (__last2 - __first2);
 }
@@ -1552,7 +1537,7 @@ __pattern_partial_sort_copy(_ExecutionPolicy&& __exec, _InIterator __first, _InI
         return __out_first;
 
     // TODO: we can avoid a separate __pattern_walk2 for initial copy: it can be done during sort itself
-    // like it's done for CPU version, but it's better to be done together with merge cutoff implmenetation
+    // like it's done for CPU version, but it's better to be done together with merge cutoff implementation
     // as it uses a similar mechanism.
     if (__in_size <= __out_size)
     {
@@ -1571,7 +1556,7 @@ __pattern_partial_sort_copy(_ExecutionPolicy&& __exec, _InIterator __first, _InI
     }
     else
     {
-        // If our input buffer is smaller than the input bufer do the following:
+        // If our input buffer is smaller than the input buffer do the following:
         // - create a temporary buffer and copy all the elements from the input buffer there
         // - run partial sort on the temporary buffer
         // - copy k elements from the temporary buffer to the output buffer.
@@ -1802,7 +1787,7 @@ __pattern_hetero_set_op(_ExecutionPolicy&& __exec, _ForwardIterator1 __first1, _
                                                                   __get_data_op},
             // global scan
             __copy_by_mask_op)
-            .second;
+            .get();
 
     return __result + __result_size;
 }
@@ -1936,7 +1921,7 @@ class __set_symmetric_difference_phase_2
 //------------------------------------------------------------------------
 // set_symmetric_difference
 //------------------------------------------------------------------------
-// At the moment the algo imlementation based on 3 phases:
+// At the moment the algo implementation based on 3 phases:
 // 1. Calc difference {1} \ {2}
 // 2. Calc difference {2} \ {1}
 // 3. Merge the differences
