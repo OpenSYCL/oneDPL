@@ -21,7 +21,20 @@
 #ifndef _ONEDPL_sycl_defs_H
 #define _ONEDPL_sycl_defs_H
 
+#if defined(__HIPSYCL__) && (SYCL_LANGUAGE_VERSION >= 202003)
+#define _ONEDPL_HIPSYCL_FEATURE_SET 1
+#else
+#define _ONEDPL_HIPSYCL_FEATURE_SET 0
+#endif
+
+#if _ONEDPL_HIPSYCL_FEATURE_SET
+// The deprecated header CL/sycl.hpp
+// is not required to expose the ::sycl namespace,
+// only ::cl::sycl in the SYCL 2020 spec.
+#include <sycl/sycl.hpp>
+#else
 #include <CL/sycl.hpp>
+#endif
 
 // Combine SYCL runtime library version
 #if defined(__LIBSYCL_MAJOR_VERSION) && defined(__LIBSYCL_MINOR_VERSION) && defined(__LIBSYCL_PATCH_VERSION)
@@ -40,10 +53,10 @@
 #endif
 
 // Macros to check the new SYCL features
-#define _ONEDPL_NO_INIT_PRESENT (__LIBSYCL_VERSION >= 50300)
+#define _ONEDPL_NO_INIT_PRESENT ((__LIBSYCL_VERSION >= 50300) || _ONEDPL_HIPSYCL_FEATURE_SET)
 #define _ONEDPL_KERNEL_BUNDLE_PRESENT (__LIBSYCL_VERSION >= 50300)
-#define _ONEDPL_SYCL2020_COLLECTIVES_PRESENT (__LIBSYCL_VERSION >= 50300)
-#define _ONEDPL_SYCL2020_FUNCTIONAL_OBJECTS_PRESENT (__LIBSYCL_VERSION >= 50300)
+#define _ONEDPL_SYCL2020_COLLECTIVES_PRESENT ((__LIBSYCL_VERSION >= 50300) || _ONEDPL_HIPSYCL_FEATURE_SET)
+#define _ONEDPL_SYCL2020_FUNCTIONAL_OBJECTS_PRESENT ((__LIBSYCL_VERSION >= 50300) || _ONEDPL_HIPSYCL_FEATURE_SET)
 
 namespace __dpl_sycl
 {
