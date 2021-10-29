@@ -378,7 +378,7 @@ __max_compute_units(_ExecutionPolicy&& __policy)
 //-----------------------------------------------------------------------------
 
 // 20201214 value corresponds to Intel(R) oneAPI C++ Compiler Classic 2021.1.2 Patch release
-#define _USE_KERNEL_DEVICE_SPECIFIC_API (__SYCL_COMPILER_VERSION > 20201214)
+#define _USE_KERNEL_DEVICE_SPECIFIC_API ((__SYCL_COMPILER_VERSION > 20201214) || _ONEDPL_HIPSYCL_FEATURE_SET)
 
 template <typename _ExecutionPolicy>
 ::std::size_t
@@ -409,11 +409,12 @@ __kernel_sub_group_size(_ExecutionPolicy&& __policy, const sycl::kernel& __kerne
     const ::std::size_t __wg_size = __kernel_work_group_size(::std::forward<_ExecutionPolicy>(__policy), __kernel);
     const ::std::uint32_t __sg_size =
 #if _USE_KERNEL_DEVICE_SPECIFIC_API
-        __kernel.template get_info<sycl::info::kernel_device_specific::max_sub_group_size>(
+        __kernel.template get_info<sycl::info::kernel_device_specific::max_sub_group_size>(__device);
 #else
-        __kernel.template get_sub_group_info<sycl::info::kernel_sub_group::max_sub_group_size>(
+        __kernel.template get_sub_group_info<sycl::info::kernel_sub_group::max_sub_group_size>(__device,
+            sycl::range<3>{__wg_size, 1, 1});
 #endif
-            __device, sycl::range<3>{__wg_size, 1, 1});
+
     return __sg_size;
 }
 
